@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -17,7 +19,17 @@ var wg sync.WaitGroup
 var count int64
 var filecount int
 
-// Functions
+var threshold = map[string]int{
+	"overThreshold":  0,
+	"underThreshold": 0,
+}
+
+// IsNumeric checks and make sure it's numeric string
+func IsNumeric(s string) bool {
+	_, err := strconv.ParseFloat(s, 64)
+	return err == nil
+}
+
 func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 	resp, err := svc.SelectObjectContent(s3object)
 	if err != nil {
@@ -45,11 +57,26 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 	// Printout the results
 	resReader := csv.NewReader(results)
 	for {
-		_, err := resReader.Read()
+		record, err := resReader.Read()
 		if err == io.EOF {
 			break
 		}
+		str := strings.Join(record, " ")
+
+		if IsNumeric(str) == false {
+			continue
+		}
+
+		value, _ := strconv.ParseFloat(str, 64)
+
+		if value > 100 {
+			fmt.Println("Analytics Tripped: Value greater than 100 =>", value)
+			threshold["overThreshold"] = threshold["overThreshold"] + 1
+		} else {
+			threshold["underThreshold"] = threshold["underThreshold"] + 1
+		}
 	}
+
 	if err := resp.EventStream.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "reading from event stream failed, %v\n", err)
 	}
@@ -60,7 +87,7 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 func main() {
 
 	// Variables
-	bucket := "seselect"
+	bucket := "seselect-test"
 
 	// Create a session and error object.
 	sess, err := session.NewSession(&aws.Config{Region: aws.String(os.Getenv("REGION"))})
@@ -109,4 +136,6 @@ func main() {
 	megabytes := count / 1024 / 1024
 	fmt.Printf("Total Megabytes Processed: %d\n", megabytes)
 	fmt.Printf("Total NMON Files Processed: %d\n", filecount)
+	fmt.Printf("Total Number of Analytics Over Threshold: %d\n", threshold["overThreshold"])
+	fmt.Printf("Total Number of Analytics Under Threshold: %d\n", threshold["underThreshold"])
 }
