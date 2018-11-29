@@ -35,7 +35,8 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 			case *s3.RecordsEvent:
 				resultWriter.Write(e.Payload)
 			case *s3.StatsEvent:
-				fmt.Printf("Processed %d bytes\n", *e.Details.BytesProcessed)
+				megabytes := *e.Details.BytesProcessed / 1024 / 1024
+				fmt.Printf("Processed %d megabytes\n", megabytes)
 				count = count + *e.Details.BytesProcessed
 			}
 		}
@@ -44,11 +45,10 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 	// Printout the results
 	resReader := csv.NewReader(results)
 	for {
-		record, err := resReader.Read()
+		_, err := resReader.Read()
 		if err == io.EOF {
 			break
 		}
-		fmt.Println(record)
 	}
 	if err := resp.EventStream.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "reading from event stream failed, %v\n", err)
