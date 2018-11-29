@@ -40,8 +40,10 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 	defer resp.EventStream.Close()
 
 	results, resultWriter := io.Pipe()
+	fmt.Println("Starting second")
+	var wg2 sync.WaitGroup
+	wg2.Add(1)
 	go func() {
-		defer resultWriter.Close()
 		for event := range resp.EventStream.Events() {
 			switch e := event.(type) {
 			case *s3.RecordsEvent:
@@ -52,8 +54,11 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 				count = count + *e.Details.BytesProcessed
 			}
 		}
+		wg2.Done()
 	}()
+	resultWriter.Close()
 
+	wg2.Wait()
 	// Printout the results
 	resReader := csv.NewReader(results)
 	for {
@@ -87,7 +92,7 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 func main() {
 
 	// Variables
-	bucket := "seselect-test"
+	bucket := "seselect"
 
 	// Create a session and error object.
 	sess, err := session.NewSession(&aws.Config{Region: aws.String(os.Getenv("REGION"))})
@@ -124,6 +129,9 @@ func main() {
 			OutputSerialization: &s3.OutputSerialization{
 				CSV: &s3.CSVOutput{},
 			},
+			RequestProgress: &s3.RequestProgress{
+				Enabled: aws.Bool(true),
+			},
 		}
 
 		wg.Add(1)
@@ -138,4 +146,5 @@ func main() {
 	fmt.Printf("Total NMON Files Processed: %d\n", filecount)
 	fmt.Printf("Total Number of Analytics Over Threshold: %d\n", threshold["overThreshold"])
 	fmt.Printf("Total Number of Analytics Under Threshold: %d\n", threshold["underThreshold"])
+
 }
