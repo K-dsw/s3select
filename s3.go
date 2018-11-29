@@ -12,10 +12,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
+// Variables
 var wg sync.WaitGroup
 var count int64
 var filecount int
 
+// Functions
 func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 	resp, err := svc.SelectObjectContent(s3object)
 	if err != nil {
@@ -38,6 +40,7 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 			}
 		}
 	}()
+
 	// Printout the results
 	resReader := csv.NewReader(results)
 	for {
@@ -70,6 +73,10 @@ func main() {
 
 	// Create our objects
 	objects, err := svc.ListObjects(&s3.ListObjectsInput{Bucket: &bucket})
+
+	if err != nil {
+		panic(err)
+	}
 
 	// Loop over our objects
 	for _, b := range objects.Contents {
