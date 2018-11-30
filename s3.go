@@ -18,6 +18,7 @@ import (
 var wg sync.WaitGroup
 var count int64
 var filecount int
+var mutex sync.Mutex
 
 var threshold = map[string]int{
 	"overThreshold":  0,
@@ -40,7 +41,6 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 	defer resp.EventStream.Close()
 
 	results, resultWriter := io.Pipe()
-	fmt.Println("Starting second")
 	var wg2 sync.WaitGroup
 	wg2.Add(1)
 	go func() {
@@ -49,9 +49,9 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 			case *s3.RecordsEvent:
 				resultWriter.Write(e.Payload)
 			case *s3.StatsEvent:
-				megabytes := *e.Details.BytesProcessed / 1024 / 1024
-				fmt.Printf("Processed %d megabytes\n", megabytes)
+				mutex.Lock() // Placing lock on count to prevent data race.
 				count = count + *e.Details.BytesProcessed
+				mutex.Unlock() // Unlocking access to count.
 			}
 		}
 		wg2.Done()
