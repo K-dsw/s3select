@@ -60,10 +60,14 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 
 	wg2.Wait()
 	// Printout the results
+
 	resReader := csv.NewReader(results)
 	for {
 		record, err := resReader.Read()
+
 		if err == io.EOF {
+			fmt.Println("Error during resReader.Read():", err)
+			fmt.Println("Record being processed", record)
 			break
 		}
 		str := strings.Join(record, " ")
@@ -92,7 +96,7 @@ func s3select(s3object *s3.SelectObjectContentInput, svc *s3.S3) {
 func main() {
 
 	// Variables
-	bucket := "seselect"
+	bucket := "seselect-test"
 
 	// Create a session and error object.
 	sess, err := session.NewSession(&aws.Config{Region: aws.String(os.Getenv("REGION"))})
